@@ -212,6 +212,15 @@ while ($proceedWithExtraction -notin "yes", "no") {
     }
 }
 
+# Define a temporary path for extraction
+$tempExtractionPath = Join-Path $PSScriptRoot "temp_extraction"
+
+# Create the temporary directory if it doesn't exist, and clear it if it does
+if (Test-Path $tempExtractionPath) {
+    Remove-Item -Path $tempExtractionPath -Recurse -Force
+}
+New-Item -ItemType Directory -Path $tempExtractionPath | Out-Null
+
 # Perform the extraction with the -Force parameter to overwrite existing files
 try {
     # Extract selected zip files
@@ -220,8 +229,8 @@ try {
 
     foreach ($zipFilePath in $zipFilePaths) {
         if (Test-Path $zipFilePath) {
-            Expand-Archive -Path $zipFilePath -DestinationPath $extractionPath -Force
-            Write-Host "Extracted $zipFilePath to $extractionPath"
+            Expand-Archive -Path $zipFilePath -DestinationPath $tempExtractionPath -Force
+            Write-Host "Extracted $zipFilePath to temporary path..."
             $extractedFiles++
             $percentage = [math]::Round(($extractedFiles / $totalFiles) * 100)
             Update-ProgressBar -percentage $percentage
@@ -230,7 +239,14 @@ try {
         }
     }
 
-    Write-Host "Extraction completed. Files extracted to: $extractionPath"
+        Write-Host ""
+    Write-Host "Extraction to temporary location complete."
+    Write-Host "Starting Robocopy to move files to the final destination: $extractionPath"
+    robocopy $tempExtractionPath $extractionPath /E /NJH /NJS
+    Write-Host "Robocopy process completed."
+    Write-Host "Cleaning up temporary files..."
+    Remove-Item -Path $tempExtractionPath -Recurse -Force
+    Write-Host "Cleanup complete."
 } catch {
     Write-Host "An error occurred during extraction: $_"
 }
